@@ -1,0 +1,4 @@
+*.out
+*.rrd
+*.png
+logs
