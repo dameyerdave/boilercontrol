@@ -41,6 +41,28 @@ test = {
             'temp_boiler_ug_unten': 25,
             'temp_solar': 55
         }
+    },
+    'test3': {
+        'now': '0300',
+        'sensor': {
+            'outside_air_temp': 3,
+            'temp_boiler_dg_oben': 40,
+            'temp_boiler_dg_unten': 30,
+            'temp_boiler_ug_oben': 40,
+            'temp_boiler_ug_unten': 30,
+            'temp_solar': 35
+        }
+    },
+    'test4': {
+        'now': '0300',
+        'sensor': {
+            'outside_air_temp': 3,
+            'temp_boiler_dg_oben': 40,
+            'temp_boiler_dg_unten': 52,
+            'temp_boiler_ug_oben': 40,
+            'temp_boiler_ug_unten': 30,
+            'temp_solar': 35
+        }
     }
 }
 
