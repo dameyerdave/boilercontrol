@@ -3,7 +3,7 @@ services:
   ui:
     build: ui
     ports:
-      - 8000:8000
+      - 80:80
     volumes:
       - ./ui/app:/app
       - ./tempweek.png:/app/public/tempweek.png
