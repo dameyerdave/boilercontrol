@@ -19,7 +19,7 @@ sensor = {
 }
 
 # Test cases
-test = { 
+test = {
     'test1': {
         'now': '2330',
         'sensor': {
@@ -53,12 +53,15 @@ relais = {
     'electro_aux': 20
 }
 
-def cleanup(signum = None, frame = None):
+
+def cleanup(signum=None, frame=None):
     print('GPIO cleanup.')
     GPIO.cleanup()
     sys.exit(0)
 
+
 signal.signal(signal.SIGINT, cleanup)
+
 
 def read_config():
     with open('boilercontrol.conf', 'r') as cf:
@@ -67,9 +70,19 @@ def read_config():
         except Exception as ex:
             sys.exit(ex)
 
+
+def read_manual():
+    with open('manual.conf', 'r') as cf:
+        try:
+            return yaml.safe_load(cf)
+        except Exception as ex:
+            sys.exit(ex)
+
+
 def to_time(val):
     val = str(val)
     return dt.strptime(val, '%H%M')
+
 
 def read_sensor(name):
     value = "U"
@@ -86,8 +99,10 @@ def read_sensor(name):
         raise
     return value
 
+
 def to_gpio(val):
     return GPIO.LOW if val else GPIO.HIGH
+
 
 def time_between(now, start, end):
     if end >= start:
@@ -101,100 +116,105 @@ for rel, gpio in relais.items():
     print(f"Setup relais {rel} GPIO {gpio}...")
     GPIO.setup(gpio, GPIO.OUT, initial=GPIO.HIGH)
 
+
 @click.command()
 @click.option('--testcase', '-t', default=None)
-def main(testcase = None):
+def main(testcase=None):
     electro_dg_on = False
     electro_ug_on = False
     while True:
-       config = read_config()
-       try:
-           # time values
-           if testcase:
+        manual = read_manual()
+        config = read_config()
+        try:
+            # manual values
+            electro_modus_dg = manual['dg']['electro']['modus']
+            electro_modus_ug = manual['ug']['electro']['modus']
+
+            # time values
+            if testcase:
                 now = to_time(test[testcase]['now'])
-           else:
-               now = dt.now()
-           start_sol_ladung = to_time(config['time']['start_sol_ladung'])
-           end_sol_ladung = to_time(config['time']['end_sol_ladung'])
-           start_electro_ladung = to_time(config['time']['start_electro_ladung'])
-           end_electro_ladung = to_time(config['time']['end_electro_ladung'])
-           start_electro_aux = to_time(config['time']['start_electro_aux'])
-           end_electro_aux = to_time(config['time']['end_electro_aux'])
-           
-           
-           # temp configs
-           temp_min_solar = config['temp']['min_solar']
-           temp_diff_ein = config['temp']['diff_ein']
-           temp_diff_aus = config['temp']['diff_aus']
-           temp_min_electro = config['temp']['min_electro']
-           temp_max_electro = config['temp']['max_electro']
-           temp_min_outside_air = config['temp']['min_outside_air']
-           temp_solar_aux = config['temp']['solar_aux']
-           
-           # sensors
-           if testcase:
-               temp_solar = test[testcase]['sensor']['temp_solar']
-               temp_boiler_dg_oben = test[testcase]['sensor']['temp_boiler_dg_oben']
-               temp_boiler_dg_unten = test[testcase]['sensor']['temp_boiler_dg_unten']
-               temp_boiler_ug_oben = test[testcase]['sensor']['temp_boiler_ug_oben']
-               temp_boiler_ug_unten = test[testcase]['sensor']['temp_boiler_ug_unten']
-               outside_air_temp = test[testcase]['sensor']['outside_air_temp']
-           else:
-               temp_solar = read_sensor('temp_solar')
-               temp_boiler_dg_oben = read_sensor('temp_boiler_dg_oben')
-               temp_boiler_dg_unten = read_sensor('temp_boiler_dg_unten')
-               temp_boiler_ug_oben = read_sensor('temp_boiler_ug_oben')
-               temp_boiler_ug_unten = read_sensor('temp_boiler_ug_unten')
-               outside_air_temp = read_sensor('outside_air_temp')
-           
-           def boiler_on(_temp, _relais):        
-               _boiler_on = time_between(now, start_sol_ladung, end_sol_ladung) \
-                       and temp_solar > temp_min_solar \
-                       and temp_solar > _temp + temp_diff_ein \
-                       and temp_boiler_dg_unten + temp_diff_aus <= temp_boiler_dg_oben
-               GPIO.output(relais[_relais], to_gpio(_boiler_on))
-               return _boiler_on
-           
-           boiler_dg_on = boiler_on(temp_boiler_dg_oben, 'boiler_dg')
-           boiler_ug_on = boiler_on(temp_boiler_ug_oben, 'boiler_ug')
-           
-           valve_open = boiler_dg_on or boiler_ug_on
-           GPIO.output(relais['valve'], to_gpio(valve_open))
-           
-           
-           def electro_on(_temp, _running, _relais):
-               _electro_on = time_between(now, start_electro_ladung, end_electro_ladung) \
-                             and temp_solar <= temp_min_solar \
-                             and (
-                                     _temp < temp_min_electro and not _running \
-                                     or _temp < temp_max_electro and _running
-                                 )
-               GPIO.output(relais[_relais], to_gpio(_electro_on))
-               return _electro_on
-               
-           electro_dg_on = electro_on(temp_boiler_dg_oben, electro_dg_on, 'electro_dg')
-           electro_ug_on = electro_on(temp_boiler_ug_oben, electro_ug_on, 'electro_ug')
-           
-           electro_aux_on = time_between(now, start_electro_aux, end_electro_aux) \
-                            and outside_air_temp < temp_min_outside_air \
-                            and temp_solar < temp_solar_aux
-           GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on))
-           
-       except Exception as ex:
-           print(f"Error: {ex}")
-           traceback.print_exc()
-       finally:
-           sleep(60)
-   
+            else:
+                now = dt.now()
+            start_sol_ladung = to_time(config['time']['start_sol_ladung'])
+            end_sol_ladung = to_time(config['time']['end_sol_ladung'])
+            start_electro_ladung = to_time(
+                config['time']['start_electro_ladung'])
+            end_electro_ladung = to_time(config['time']['end_electro_ladung'])
+            start_electro_aux = to_time(config['time']['start_electro_aux'])
+            end_electro_aux = to_time(config['time']['end_electro_aux'])
+
+            # temp configs
+            temp_min_solar = config['temp']['min_solar']
+            temp_diff_ein = config['temp']['diff_ein']
+            temp_diff_aus = config['temp']['diff_aus']
+            temp_min_electro = config['temp']['min_electro']
+            temp_max_electro_dg = config['temp'][f"max_electro_{electro_modus_dg}"]
+            temp_max_electro_ug = config['temp'][f"max_electro_{electro_modus_ug}"]
+            temp_min_outside_air = config['temp']['min_outside_air']
+            temp_solar_aux = config['temp']['solar_aux']
+
+            # sensors
+            if testcase:
+                temp_solar = test[testcase]['sensor']['temp_solar']
+                temp_boiler_dg_oben = test[testcase]['sensor']['temp_boiler_dg_oben']
+                temp_boiler_dg_unten = test[testcase]['sensor']['temp_boiler_dg_unten']
+                temp_boiler_ug_oben = test[testcase]['sensor']['temp_boiler_ug_oben']
+                temp_boiler_ug_unten = test[testcase]['sensor']['temp_boiler_ug_unten']
+                outside_air_temp = test[testcase]['sensor']['outside_air_temp']
+            else:
+                temp_solar = read_sensor('temp_solar')
+                temp_boiler_dg_oben = read_sensor('temp_boiler_dg_oben')
+                temp_boiler_dg_unten = read_sensor('temp_boiler_dg_unten')
+                temp_boiler_ug_oben = read_sensor('temp_boiler_ug_oben')
+                temp_boiler_ug_unten = read_sensor('temp_boiler_ug_unten')
+                outside_air_temp = read_sensor('outside_air_temp')
+
+            def boiler_on(_temp_oben, _temp_unten, _relais):
+                _boiler_on = time_between(now, start_sol_ladung, end_sol_ladung) \
+                    and temp_solar > temp_min_solar \
+                    and temp_solar > _temp_oben + temp_diff_ein \
+                    and (_temp_unten + temp_diff_aus - _temp_oben < 0
+                         or _temp_unten + temp_diff_aus > _temp_oben)
+                GPIO.output(relais[_relais], to_gpio(_boiler_on))
+                return _boiler_on
+
+            boiler_dg_on = boiler_on(
+                temp_boiler_dg_oben, temp_boiler_dg_unten, 'boiler_dg')
+            boiler_ug_on = boiler_on(
+                temp_boiler_ug_oben, temp_boiler_ug_unten, 'boiler_ug')
+
+            valve_open = boiler_dg_on or boiler_ug_on
+            GPIO.output(relais['valve'], to_gpio(valve_open))
+
+            def electro_on(_temp_unten, _temp_max, _running, _relais):
+                _electro_on = time_between(now, start_electro_ladung, end_electro_ladung) \
+                    and temp_solar <= temp_min_solar \
+                    and (
+                        _temp_unten < temp_min_electro and not _running
+                        or _temp_unten < _temp_max and _running
+                ) \
+
+                GPIO.output(relais[_relais], to_gpio(_electro_on))
+                return _electro_on
+
+            electro_dg_on = electro_on(
+                temp_boiler_dg_unten, temp_max_electro_dg, electro_dg_on, 'electro_dg')
+            electro_ug_on = electro_on(
+                temp_boiler_ug_unten, temp_max_electro_ug, electro_ug_on, 'electro_ug')
+
+            electro_aux_on = time_between(now, start_electro_aux, end_electro_aux) \
+                and outside_air_temp < temp_min_outside_air \
+                and temp_solar < temp_solar_aux
+            GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on))
+
+        except Exception as ex:
+            print(f"Error: {ex}")
+            traceback.print_exc()
+        finally:
+            sleep(60)
+
     cleanup()
-   
-   
+
+
 if __name__ == '__main__':
     main()
-   
-   
-   
-   
-   
-   
-   

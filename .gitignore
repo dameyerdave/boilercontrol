@@ -2,3 +2,5 @@
 *.rrd
 *.png
 logs
+
+node_modules
