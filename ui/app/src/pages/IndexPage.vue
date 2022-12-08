@@ -24,8 +24,13 @@ const save = () => {
 
 <template>
   <q-page class="flex flex-center">
-    <q-img src="/tempweek.png" width="80%" />
-    <div v-if="manual" class="row">
+    <div v-if="manual" class="container full-width" style="text-align: center">
+    <div class="row">
+      <div class="col-12">
+        <q-img src="/tempweek.png" width="80%" />
+      </div>
+    </div>
+    <div class="row">
       <div class="col-12">
         <h5>Boiler DG Elektroladung</h5>
         <q-btn-toggle
@@ -42,6 +47,8 @@ const save = () => {
           @click="save"
         />
       </div>
+    </div>
+    <div class="row">
       <div class="col-12">
         <h5>Boiler UG Elektroladung</h5>
         <q-btn-toggle
@@ -58,6 +65,26 @@ const save = () => {
           @click="save"
         />
       </div>
+    </div>
+    <div class="row q-mt-lg">
+      <div class="col-12 q-mt-lg">
+        <q-btn-toggle
+          name="genre"
+          v-model="manual.aux.enabled"
+          push
+          glossy
+	  color="white"
+          text-color="black"
+          toggle-color="red"
+          toggle-text-color="black"
+          :options="[
+            { label: 'AUX ein', value: true },
+            { label: 'AUX aus', value: false },
+          ]"
+          @click="save"
+        />
+      </div>
+    </div>
     </div>
   </q-page>
 </template>

@@ -152,6 +152,7 @@ def main(testcase=None):
             # manual values
             electro_modus_dg = manual['dg']['electro']['modus']
             electro_modus_ug = manual['ug']['electro']['modus']
+            aux_enabled = manual['aux']['enabled']
 
             # time values
             if testcase:
@@ -227,7 +228,9 @@ def main(testcase=None):
 
             electro_aux_on = time_between(now, start_electro_aux, end_electro_aux) \
                 and outside_air_temp < temp_min_outside_air \
-                and temp_solar < temp_solar_aux
+                and temp_solar < temp_solar_aux \
+                and aux_enabled
+
             GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on))
 
         except Exception as ex:
