@@ -9,6 +9,7 @@ services:
       - ./tempweek.png:/app/public/tempweek.png
     depends_on:
       - api
+    restart: unless-stopped
   api:
     build: api
     command: python ./api.py
@@ -17,3 +18,4 @@ services:
     volumes:
       - ./api/app:/app
       - ./manual.conf:/manual.conf
+    restart: unless-stopped

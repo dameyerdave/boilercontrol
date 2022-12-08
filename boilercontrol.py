@@ -8,6 +8,7 @@ import sys
 import signal
 import traceback
 import click
+import re
 
 sensor = {
     'outside_air_temp': "/sys/bus/w1/devices/28-0621c1b4fce2/w1_slave",
@@ -103,7 +104,7 @@ def read_manual():
 
 def to_time(val):
     val = str(val)
-    return dt.strptime(val, '%H%M')
+    return dt.strptime(val, '%H%M').time()
 
 
 def read_sensor(name):
@@ -115,7 +116,7 @@ def read_sensor(name):
                 line = f.readline()
                 m = re.match(r"([0-9a-f]{2} ){9}t=([+-]?[0-9]+)", line)
                 if m:
-                    value = str(float(m.group(2)) / 1000.0)
+                    value = float(m.group(2)) / 1000.0
     except IOError as ioe:
         print(f"Error reading sensor: {ioe}")
         raise
@@ -156,7 +157,7 @@ def main(testcase=None):
             if testcase:
                 now = to_time(test[testcase]['now'])
             else:
-                now = dt.now()
+                now = to_time(dt.strftime(dt.now(), '%H%M'))
             start_sol_ladung = to_time(config['time']['start_sol_ladung'])
             end_sol_ladung = to_time(config['time']['end_sol_ladung'])
             start_electro_ladung = to_time(
@@ -208,21 +209,21 @@ def main(testcase=None):
             valve_open = boiler_dg_on or boiler_ug_on
             GPIO.output(relais['valve'], to_gpio(valve_open))
 
-            def electro_on(_temp_unten, _temp_max, _running, _relais):
+            def electro_on(_temp_unten, _temp_oben, _temp_max, _running, _relais):
                 _electro_on = time_between(now, start_electro_ladung, end_electro_ladung) \
                     and temp_solar <= temp_min_solar \
                     and (
                         _temp_unten < temp_min_electro and not _running
-                        or _temp_unten < _temp_max and _running
-                ) \
+                        or _temp_oben < _temp_max and _running
+                )
 
                 GPIO.output(relais[_relais], to_gpio(_electro_on))
                 return _electro_on
 
             electro_dg_on = electro_on(
-                temp_boiler_dg_unten, temp_max_electro_dg, electro_dg_on, 'electro_dg')
+                temp_boiler_dg_unten, temp_boiler_dg_oben, temp_max_electro_dg, electro_dg_on, 'electro_dg')
             electro_ug_on = electro_on(
-                temp_boiler_ug_unten, temp_max_electro_ug, electro_ug_on, 'electro_ug')
+                temp_boiler_ug_unten, temp_boiler_ug_oben, temp_max_electro_ug, electro_ug_on, 'electro_ug')
 
             electro_aux_on = time_between(now, start_electro_aux, end_electro_aux) \
                 and outside_air_temp < temp_min_outside_air \
