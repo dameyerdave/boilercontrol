@@ -107,8 +107,8 @@ def to_time(val):
     return dt.strptime(val, '%H%M').time()
 
 
-def read_sensor(name):
-    value = "U"
+def read_sensor(name: str, default: int = None):
+    value = default
     try:
         with open(sensor[name], 'r') as f:
             line = f.readline()
@@ -119,7 +119,8 @@ def read_sensor(name):
                     value = float(m.group(2)) / 1000.0
     except IOError as ioe:
         print(f"Error reading sensor: {ioe}")
-        raise
+        if value == None:
+            raise
     return value
 
 
@@ -186,12 +187,12 @@ def main(testcase=None):
                 temp_boiler_ug_unten = test[testcase]['sensor']['temp_boiler_ug_unten']
                 outside_air_temp = test[testcase]['sensor']['outside_air_temp']
             else:
-                temp_solar = read_sensor('temp_solar')
-                temp_boiler_dg_oben = read_sensor('temp_boiler_dg_oben')
-                temp_boiler_dg_unten = read_sensor('temp_boiler_dg_unten')
-                temp_boiler_ug_oben = read_sensor('temp_boiler_ug_oben')
-                temp_boiler_ug_unten = read_sensor('temp_boiler_ug_unten')
-                outside_air_temp = read_sensor('outside_air_temp')
+                temp_solar = read_sensor('temp_solar', 0)
+                temp_boiler_dg_oben = read_sensor('temp_boiler_dg_oben', 80)
+                temp_boiler_dg_unten = read_sensor('temp_boiler_dg_unten', 80)
+                temp_boiler_ug_oben = read_sensor('temp_boiler_ug_oben', 80)
+                temp_boiler_ug_unten = read_sensor('temp_boiler_ug_unten', 80)
+                outside_air_temp = read_sensor('outside_air_temp', 40)
 
             def boiler_on(_temp_oben, _temp_unten, _relais):
                 _boiler_on = time_between(now, start_sol_ladung, end_sol_ladung) \
