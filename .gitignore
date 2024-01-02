@@ -4,3 +4,7 @@
 logs
 
 node_modules
+*.pyc
+*.swp
+temperature.csv
+temperature.xml

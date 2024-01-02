@@ -7,9 +7,9 @@ rrdtool graph ${DIR}/../tempweek.png \
   DEF:oat=${DIR}/../temperature.rrd:oat:AVERAGE \
   LINE2:oat#00FF00:oat \
   DEF:boi_dg_o=${DIR}/../temperature.rrd:boi_dg_o:AVERAGE \
-  LINE2:boi_dg_o#FF5E00:boi_dg_o \
+  LINE2:boi_dg_o#ED7196#ED7196:boi_dg_o \
   DEF:boi_dg_u=${DIR}/../temperature.rrd:boi_dg_u:AVERAGE \
-  LINE2:boi_dg_u#0000FF:boi_dg_u \
+  LINE2:boi_dg_u#ADFF00:boi_dg_u \
   DEF:boi_ug_o=${DIR}/../temperature.rrd:boi_ug_o:AVERAGE \
   LINE2:boi_ug_o#580080:boi_ug_o \
   DEF:boi_ug_u=${DIR}/../temperature.rrd:boi_ug_u:AVERAGE \
