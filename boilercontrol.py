@@ -208,7 +208,7 @@ def main(testcase=None):
                 temp_boiler_ug_unten = read_sensor('temp_boiler_ug_unten', 80)
                 outside_air_temp = read_sensor('outside_air_temp', 40)
 
-            # digital sesors
+            # digital sensors
             pv_leistung = GPIO.input(digi_sensor['pv_leistung']) == 1
 
             def boiler_on(_temp_oben, _temp_unten, _relais, _running, _change_time):
@@ -220,7 +220,7 @@ def main(testcase=None):
                     and temp_solar > temp_min_solar \
                     and (
                             (_change_time is None and temp_solar > _temp_oben + temp_diff_ein) \
-                            (_change_time is not None and temp_solar > _temp_oben + temp_diff_ein + temp_hyst_diff) \
+                        or  (_change_time is not None and temp_solar > _temp_oben + temp_diff_ein + temp_hyst_diff) \
                     ) \
                     and (
                             (_change_time is None and temp_solar > _temp_unten + temp_diff_aus) \
@@ -240,8 +240,9 @@ def main(testcase=None):
             valve_open = boiler_dg_on or boiler_ug_on
             GPIO.output(relais['valve'], to_gpio(valve_open))
 
-            def electro_on(_temp_unten, _temp_oben, _temp_max, _running, _relais):
-                _electro_on = time_between(now, start_electro_ladung, end_electro_ladung) \
+            def electro_on(modus, _temp_unten, _temp_oben, _temp_max, _running, _relais):
+                _electro_on = modus != 'aus' \
+                    and time_between(now, start_electro_ladung, end_electro_ladung) \
                     and temp_solar <= temp_min_solar \
                     and (
                         _temp_unten < temp_min_electro and not _running
@@ -252,9 +253,9 @@ def main(testcase=None):
                 return _electro_on
 
             electro_dg_on = electro_on(
-                temp_boiler_dg_unten, temp_boiler_dg_oben, temp_max_electro_dg, electro_dg_on, 'electro_dg')
+                electro_modus_dg, temp_boiler_dg_unten, temp_boiler_dg_oben, temp_max_electro_dg, electro_dg_on, 'electro_dg')
             electro_ug_on = electro_on(
-                temp_boiler_ug_unten, temp_boiler_ug_oben, temp_max_electro_ug, electro_ug_on, 'electro_ug')
+                electro_modus_ug, temp_boiler_ug_unten, temp_boiler_ug_oben, temp_max_electro_ug, electro_ug_on, 'electro_ug')
 
             electro_aux_on = time_between(now, start_electro_aux, end_electro_aux) \
                 and outside_air_temp < temp_min_outside_air \
@@ -273,9 +274,6 @@ def main(testcase=None):
             traceback.print_exc()
         finally:
             sleep(60)
-
-    cleanup()
-
 
 if __name__ == '__main__':
     main()
