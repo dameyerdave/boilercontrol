@@ -271,9 +271,6 @@ def main(testcase=None):
             GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on)) 
             GPIO.output(relais['pv_ueber'], to_gpio(boiler_atelier_on))
             
-            
-            
- 
         except Exception as ex:
             print(f"Error: {ex}")
             traceback.print_exc()
