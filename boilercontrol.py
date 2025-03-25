@@ -74,6 +74,7 @@ relais = {
     'electro_ug': 16,
     'valve': 19,
     'electro_aux': 20,
+    'pv_ueber': 21,
     'boiler_atelier': 26
 }
 
@@ -265,10 +266,14 @@ def main(testcase=None):
             GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on))
 
             boiler_atelier_on = boiler_modus_atelier == 'ein' \
-                or (boiler_modus_atelier == 'auto' and pv_leistung)
+                or (boiler_modus_atelier == 'auto' and pv_leistung)     
             
-            GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on))
-
+            GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on)) 
+            GPIO.output(relais['pv_ueber'], to_gpio(boiler_atelier_on))
+            
+            
+            
+ 
         except Exception as ex:
             print(f"Error: {ex}")
             traceback.print_exc()
