@@ -12,7 +12,7 @@ import re
 import requests
 
 def get_average_sun_power():
-    now = dt.now(tz.utc)  # SolarEdge API expects UTC
+    now = dt.now()  # SolarEdge API expects UTC
     start = now - td(minutes=30)
 
     url = f"https://monitoringapi.solaredge.com/site/3809146/powerDetails"
@@ -323,6 +323,7 @@ def main(testcase=None):
             GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on)) 
             
             avarage_sun_power = get_average_sun_power()
+            print(f"Avarage sun power {avarage_sun_power}.")
 
             # Einschalten auf Grund Sun Power Threashold
             wp_on = wp_modus == 'ein' or (wp_modus == 'auto' and avarage_sun_power > power_min_wp)
