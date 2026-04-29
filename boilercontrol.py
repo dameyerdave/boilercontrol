@@ -323,7 +323,6 @@ def main(testcase=None):
             GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on)) 
             
             avarage_sun_power = get_average_sun_power()
-            print(f"Avarage sun power {avarage_sun_power}.")
 
             # Einschalten auf Grund Sun Power Threashold
             wp_on = wp_modus == 'ein' or (wp_modus == 'auto' and avarage_sun_power > power_min_wp)
