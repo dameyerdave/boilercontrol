@@ -333,45 +333,56 @@ def main(testcase=None):
                 sun_power['current_value'] = get_average_sun_power()
 
             avarage_sun_power = sun_power['current_value']
-
-            # Einschalten auf Grund Sun Power Threashold
-            wp_on = wp_modus == 'ein' or (wp_modus == 'auto' and avarage_sun_power > power_min_wp)
             
-            # Wenn Einschaltsperre aktiv -> nicht einschalten
-            if wp_on and keep_off_until['wp'] is not None and keep_off_until['wp'] > dt.now():
-                wp_on = False
-            else:
-                # Einschaltsperre löschen
-                keep_off_until['wp'] = None
-            
-            # Laufzeit: wenn sie einschalten soll, End-Zeit setzen
-            if wp_on and keep_on_until['wp'] is None:
-                    # WP ON, noch keine endzeit
-                    keep_on_until['wp'] = dt.now() + td(hours=ontime_wp)
-
-            # Wenn Laufzeit gesetzt
-            if keep_on_until['wp'] is not None:
-                # WP endzeit gesetzt, ON solange endzeit nicht erreicht
-                wp_on = dt.now() < keep_on_until['wp']
-                keep_on_until['wp'] = keep_on_until['wp'] if wp_on else None
-                if not wp_on:
-                    # WP wird ausgeschatet: Einschaltsperre (Endzeit) setzen
-                    keep_off_until['wp'] = dt.now() + td(hours=onlock_wp)
+            # Nur in AUTO modus
+            if wp_modus == 'auto':
+                # Einschalten auf Grund Sun Power Threashold
+                wp_on = avarage_sun_power > power_min_wp
+                # Wenn Einschaltsperre aktiv -> nicht einschalten
+                if wp_on and keep_off_until['wp'] is not None and keep_off_until['wp'] > dt.now():
+                    wp_on = False
+                else:
+                    # Einschaltsperre löschen
+                    keep_off_until['wp'] = None
                 
+                # Laufzeit: wenn sie einschalten soll, End-Zeit setzen
+                if wp_on and keep_on_until['wp'] is None:
+                        # WP ON, noch keine endzeit
+                        keep_on_until['wp'] = dt.now() + td(hours=ontime_wp)
 
-            # Einschalten auf Grund Sun Power Threashold
-            boiler_atelier_on = boiler_modus_atelier == 'ein' or (boiler_modus_atelier == 'auto' and avarage_sun_power > power_min_boiler_atelier)
+                # Wenn Laufzeit gesetzt
+                if keep_on_until['wp'] is not None:
+                    # WP endzeit gesetzt, ON solange endzeit nicht erreicht
+                    wp_on = dt.now() < keep_on_until['wp']
+                    keep_on_until['wp'] = keep_on_until['wp'] if wp_on else None
+                    if not wp_on:
+                        # WP wird ausgeschatet: Einschaltsperre (Endzeit) setzen
+                        keep_off_until['wp'] = dt.now() + td(hours=onlock_wp)
+            else:
+                wp_on = wp_modus == 'ein'
+                # Init auto state
+                keep_on_until['wp'] = None
+                keep_off_until['wp'] = None
 
-            if boiler_atelier_on:
-                # Nur einschalten, wenn heute noch nicht gelaufen
-                boiler_atelier_on = last_run_date['boiler_atelier'] < dt.now().date()
-            if boiler_atelier_on and keep_on_until['boiler_atelier'] is None:
+
+            # AUTO modus Boiler
+            if boiler_modus_atelier == 'auto':
+                # Einschalten auf Grund Sun Power Threashold
+                boiler_atelier_on = avarage_sun_power > power_min_boiler_atelier
+                if boiler_atelier_on:
+                    # Nur einschalten, wenn heute noch nicht gelaufen
+                    boiler_atelier_on = last_run_date['boiler_atelier'] < dt.now().date()
+                if boiler_atelier_on and keep_on_until['boiler_atelier'] is None:
                     # Boiler Atelier ON, noch keine endzeit
                     keep_on_until['boiler_atelier'] = dt.now() + td(hours=ontime_boiler_aterlier)
-            if keep_on_until['boiler_atelier'] is not None:
-                # Boiler Atelier endzeit gesetzt, ON solange endzeit nicht erreicht
-                boiler_atelier_on = dt.now() < keep_on_until['boiler_atelier']
-                keep_on_until['boiler_atelier'] = keep_on_until['boiler_atelier'] if boiler_atelier_on else None
+                if keep_on_until['boiler_atelier'] is not None:
+                    # Boiler Atelier endzeit gesetzt, ON solange endzeit nicht erreicht
+                    boiler_atelier_on = dt.now() < keep_on_until['boiler_atelier']
+                    keep_on_until['boiler_atelier'] = keep_on_until['boiler_atelier'] if boiler_atelier_on else None
+            else:
+                boiler_atelier_on = boiler_modus_atelier == 'ein'
+                keep_on_until['boiler_atelier'] = None
+
             
             GPIO.output(relais['wp'], to_gpio(wp_on))
             GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on)) 
