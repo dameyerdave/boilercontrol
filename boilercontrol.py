@@ -2,13 +2,45 @@
 
 import RPi.GPIO as GPIO
 from time import sleep
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta as td, timezone as tz, date
 import yaml
 import sys
 import signal
 import traceback
 import click
 import re
+import requests
+
+def get_average_sun_power():
+    now = dt.now(tz.utc)  # SolarEdge API expects UTC
+    start = now - td(minutes=30)
+
+    url = f"https://monitoringapi.solaredge.com/site/3809146/powerDetails"
+
+    params = {
+        "api_key": "W42ANY1ZV2D92JMZ4UVDOSFLD0B82NEF",
+        "startTime": start.strftime("%Y-%m-%d %H:%M:%S"),
+        "endTime": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "meters": "FeedIn"
+    }
+
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    data = response.json()
+
+    meters = data["powerDetails"]["meters"]
+    feed_in = next(m for m in meters if m["type"] == "FeedIn")
+
+    values = [
+        v["value"]
+        for v in feed_in["values"]
+        if v["value"] is not None
+    ]
+
+    if not values:
+        return None
+
+    return sum(values) / len(values)
 
 sensor = {
     'outside_air_temp': "/sys/bus/w1/devices/28-0621c1b4fce2/w1_slave",
@@ -74,14 +106,26 @@ relais = {
     'electro_ug': 16,
     'valve': 19,
     'electro_aux': 20,
-    'pv_ueber': 21,
+    'wp': 25,
     'boiler_atelier': 26
 }
 
-digi_sensor = {
-    'pv_leistung': 23
+# digi_sensor = {
+#     'pv_leistung': 23
+# }
+
+keep_on_until = {
+    'wp': None,
+    'boiler_atelier': None 
 }
 
+keep_off_until = {
+    'wp': None,
+}
+
+last_run_date = {
+    'boiler_atelier': date(1970, 1, 1)
+}
 
 def cleanup(signum=None, frame=None):
     print('GPIO cleanup.')
@@ -145,9 +189,9 @@ for rel, gpio in relais.items():
     print(f"Setup relais {rel} GPIO {gpio}...")
     GPIO.setup(gpio, GPIO.OUT, initial=GPIO.HIGH)
 
-for rel, gpio in digi_sensor.items():
-    print(f"Setup digital sensor {rel} GPIO {gpio}...")
-    GPIO.setup(gpio, GPIO.IN)
+# for rel, gpio in digi_sensor.items():
+#     print(f"Setup digital sensor {rel} GPIO {gpio}...")
+#     GPIO.setup(gpio, GPIO.IN)
 
 @click.command()
 @click.option('--testcase', '-t', default=None)
@@ -167,6 +211,7 @@ def main(testcase=None):
             electro_modus_ug = manual['ug']['electro']['modus']
             aux_enabled = manual['aux']['enabled']
             boiler_modus_atelier = manual['atelier']['boiler']['modus']
+            wp_modus = manual['wp']['modus']
 
             # time values
             if testcase:
@@ -193,6 +238,18 @@ def main(testcase=None):
             temp_solar_aux = config['temp']['solar_aux']
             temp_hyst_diff = config['temp']['hyst_diff']
 
+            # power configs
+            power_min_wp = config['power']['min_wp']
+            power_min_boiler_atelier = config['power']['min_boiler_atelier']
+
+
+            # ontime configs
+            ontime_wp = config['ontime']['wp']
+            ontime_boiler_aterlier = config['ontime']['boiler_atelier']
+
+            # onlock configs
+            onlock_wp = config['onlock']['wp']
+
             # sensors
             if testcase:
                 temp_solar = test[testcase]['sensor']['temp_solar']
@@ -210,7 +267,7 @@ def main(testcase=None):
                 outside_air_temp = read_sensor('outside_air_temp', 40)
 
             # digital sensors
-            pv_leistung = GPIO.input(digi_sensor['pv_leistung']) == 1
+            # pv_leistung = GPIO.input(digi_sensor['pv_leistung']) == 1
 
             def boiler_on(_temp_oben, _temp_unten, _relais, _running, _change_time):
                 if _change_time is not None:
@@ -263,13 +320,52 @@ def main(testcase=None):
                 and temp_solar < temp_solar_aux \
                 and aux_enabled
 
-            GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on))
-
-            boiler_atelier_on = boiler_modus_atelier == 'ein' \
-                or (boiler_modus_atelier == 'auto' and pv_leistung)     
+            GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on)) 
             
+            avarage_sun_power = get_average_sun_power()
+
+            # Einschalten auf Grund Sun Power Threashold
+            wp_on = wp_modus == 'ein' or (wp_modus == 'auto' and avarage_sun_power > power_min_wp)
+            
+            # Wenn Einschaltsperre aktiv -> nicht einschalten
+            if wp_on and keep_off_until['wp'] is not None and keep_off_until['wp'] > dt.now():
+                wp_on = False
+            else:
+                # Einschaltsperre löschen
+                keep_off_until['wp'] = None
+            
+            # Laufzeit: wenn sie einschalten soll, End-Zeit setzen
+            if wp_on and keep_on_until['wp'] is None:
+                    # WP ON, noch keine endzeit
+                    keep_on_until['wp'] = dt.now() + td(hours=ontime_wp)
+
+            # Wenn Laufzeit gesetzt
+            if keep_on_until['wp'] is not None:
+                # WP endzeit gesetzt, ON solange endzeit nicht erreicht
+                wp_on = dt.now() < keep_on_until['wp']
+                keep_on_until['wp'] = keep_on_until['wp'] if wp_on else None
+                if not wp_on:
+                    # WP wird ausgeschatet: Einschaltsperre (Endzeit) setzen
+                    keep_off_until['wp'] = dt.now() + td(hours=onlock_wp)
+                
+
+            # Einschalten auf Grund Sun Power Threashold
+            boiler_atelier_on = boiler_modus_atelier == 'ein' or (boiler_modus_atelier == 'auto' and avarage_sun_power > power_min_boiler_atelier)
+
+            if boiler_atelier_on:
+                # Nur einschalten, wenn heute noch nicht gelaufen
+                boiler_atelier_on = last_run_date['boiler_atelier'] < dt.now().date()
+            if boiler_atelier_on and keep_on_until['boiler_atelier'] is None:
+                    # Boiler Atelier ON, noch keine endzeit
+                    keep_on_until['boiler_atelier'] = dt.now() + td(hours=ontime_boiler_aterlier)
+            if keep_on_until['boiler_atelier'] is not None:
+                # Boiler Atelier endzeit gesetzt, ON solange endzeit nicht erreicht
+                boiler_atelier_on = dt.now() < keep_on_until['boiler_atelier']
+                keep_on_until['boiler_atelier'] = keep_on_until['boiler_atelier'] if boiler_atelier_on else None
+            
+            GPIO.output(relais['wp'], to_gpio(wp_on))
             GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on)) 
-            GPIO.output(relais['pv_ueber'], to_gpio(boiler_atelier_on))
+            
             
         except Exception as ex:
             print(f"Error: {ex}")
@@ -278,4 +374,5 @@ def main(testcase=None):
             sleep(60)
 
 if __name__ == '__main__':
+    
     main()

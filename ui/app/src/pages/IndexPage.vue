@@ -84,6 +84,24 @@ const save = () => {
           />
         </div>
       </div>
+      <div class="row">
+        <div class="col-12">
+          <h5 style>WP</h5>
+          <q-btn-toggle
+            name="genre"
+            v-model="manual.wp.modus"
+            push
+            glossy
+            toggle-color="teal"
+            :options="[
+              { label: 'Aus', value: 'aus' },
+              { label: 'Ein', value: 'ein' },
+              { label: 'Auto', value: 'auto' },
+            ]"
+            @click="save"
+          />
+        </div>
+      </div>
       <div class="row q-mt-lg">
         <div class="col-12 q-mt-lg">
           <q-btn-toggle
