@@ -127,6 +127,11 @@ last_run_date = {
     'boiler_atelier': date(1970, 1, 1)
 }
 
+sun_power = {
+    "next_run": dt.now(),
+    "current_value": 0
+}
+
 def cleanup(signum=None, frame=None):
     print('GPIO cleanup.')
     GPIO.cleanup()
@@ -322,7 +327,12 @@ def main(testcase=None):
 
             GPIO.output(relais['electro_aux'], to_gpio(electro_aux_on)) 
             
-            avarage_sun_power = get_average_sun_power()
+            if sun_power['next_run'] < dt.now():
+                # Alle 12 Minuten daten von solaredge holen
+                sun_power['next_run'] = dt.now() + td(minutes=12)
+                sun_power['current_value'] = get_average_sun_power()
+
+            avarage_sun_power = sun_power['current_value']
 
             # Einschalten auf Grund Sun Power Threashold
             wp_on = wp_modus == 'ein' or (wp_modus == 'auto' and avarage_sun_power > power_min_wp)
