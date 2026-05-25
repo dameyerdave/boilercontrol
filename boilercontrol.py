@@ -121,6 +121,7 @@ keep_on_until = {
 
 keep_off_until = {
     'wp': None,
+    'boiler_atelier': None 
 }
 
 last_run_date = {
@@ -333,8 +334,10 @@ def main(testcase=None):
                 sun_power['current_value'] = get_average_sun_power()
 
             avarage_sun_power = sun_power['current_value']
+            print(f"Avarage sun power: {avarage_sun_power}")
             
             # Nur in AUTO modus
+            print(f"WP modus: {wp_modus}")
             if wp_modus == 'auto':
                 # Einschalten auf Grund Sun Power Threashold
                 wp_on = avarage_sun_power > power_min_wp
@@ -364,8 +367,12 @@ def main(testcase=None):
                 keep_on_until['wp'] = None
                 keep_off_until['wp'] = None
 
+            print(f"WP keep on until: {keep_on_until['wp']}")
+            print(f"WP keep off until: {keep_off_until['wp']}")
+
 
             # AUTO modus Boiler
+            print(f"Boiler modus: {boiler_modus_atelier}")
             if boiler_modus_atelier == 'auto':
                 # Einschalten auf Grund Sun Power Threashold
                 boiler_atelier_on = avarage_sun_power > power_min_boiler_atelier
@@ -382,11 +389,13 @@ def main(testcase=None):
             else:
                 boiler_atelier_on = boiler_modus_atelier == 'ein'
                 keep_on_until['boiler_atelier'] = None
+                keep_off_until['boiler_atelier'] = None
 
+            print(f"Boiler keep on until: {keep_on_until['boiler_atelier']}")
+            print(f"Boiler keep off until: {keep_off_until['boiler_atelier']}")
             
             GPIO.output(relais['wp'], to_gpio(wp_on))
-            GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on)) 
-            
+            GPIO.output(relais['boiler_atelier'], to_gpio(boiler_atelier_on))
             
         except Exception as ex:
             print(f"Error: {ex}")
