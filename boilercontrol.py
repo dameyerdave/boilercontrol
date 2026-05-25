@@ -124,7 +124,7 @@ keep_off_until = {
     'boiler_atelier': None 
 }
 
-last_run_date = {
+last_run_at = {
     'boiler_atelier': date(1970, 1, 1)
 }
 
@@ -333,37 +333,40 @@ def main(testcase=None):
                 sun_power['next_run'] = dt.now() + td(minutes=12)
                 sun_power['current_value'] = get_average_sun_power()
 
-            avarage_sun_power = sun_power['current_value']
-            print(f"Avarage sun power: {avarage_sun_power}")
+            average_sun_power = sun_power['current_value'] or 0
+            print(f"Avarage sun power: {average_sun_power}")
             
             # Nur in AUTO modus
+            now_dt = dt.now()
+            
             print(f"WP modus: {wp_modus}")
             if wp_modus == 'auto':
-                # Einschalten auf Grund Sun Power Threashold
-                wp_on = avarage_sun_power > power_min_wp
-                # Wenn Einschaltsperre aktiv -> nicht einschalten
-                if wp_on and keep_off_until['wp'] is not None and keep_off_until['wp'] > dt.now():
-                    wp_on = False
-                else:
-                    # Einschaltsperre löschen
-                    keep_off_until['wp'] = None
-                
-                # Laufzeit: wenn sie einschalten soll, End-Zeit setzen
-                if wp_on and keep_on_until['wp'] is None:
-                        # WP ON, noch keine endzeit
-                        keep_on_until['wp'] = dt.now() + td(hours=ontime_wp)
+                sun_ok = average_sun_power > power_min_wp
 
-                # Wenn Laufzeit gesetzt
+                # clear expired lock only
+                if keep_off_until['wp'] is not None and now_dt >= keep_off_until['wp']:
+                    keep_off_until['wp'] = None
+
+                lock_active = keep_off_until['wp'] is not None
+
+                # already running: run exactly until end time
                 if keep_on_until['wp'] is not None:
-                    # WP endzeit gesetzt, ON solange endzeit nicht erreicht
-                    wp_on = dt.now() < keep_on_until['wp']
-                    keep_on_until['wp'] = keep_on_until['wp'] if wp_on else None
+                    wp_on = now_dt < keep_on_until['wp']
+
                     if not wp_on:
-                        # WP wird ausgeschatet: Einschaltsperre (Endzeit) setzen
-                        keep_off_until['wp'] = dt.now() + td(hours=onlock_wp)
+                        keep_on_until['wp'] = None
+                        keep_off_until['wp'] = now_dt + td(hours=onlock_wp)
+
+                # not running: start only if enough sun and no lock
+                elif sun_ok and not lock_active:
+                    wp_on = True
+                    keep_on_until['wp'] = now_dt + td(hours=ontime_wp)
+
+                else:
+                    wp_on = False
+
             else:
                 wp_on = wp_modus == 'ein'
-                # Init auto state
                 keep_on_until['wp'] = None
                 keep_off_until['wp'] = None
 
@@ -374,22 +377,23 @@ def main(testcase=None):
             # AUTO modus Boiler
             print(f"Boiler modus: {boiler_modus_atelier}")
             if boiler_modus_atelier == 'auto':
-                # Einschalten auf Grund Sun Power Threashold
-                boiler_atelier_on = avarage_sun_power > power_min_boiler_atelier
-                if boiler_atelier_on:
-                    # Nur einschalten, wenn heute noch nicht gelaufen
-                    boiler_atelier_on = last_run_date['boiler_atelier'] < dt.now().date()
-                if boiler_atelier_on and keep_on_until['boiler_atelier'] is None:
-                    # Boiler Atelier ON, noch keine endzeit
-                    keep_on_until['boiler_atelier'] = dt.now() + td(hours=ontime_boiler_aterlier)
+                sun_ok = average_sun_power > power_min_boiler_atelier
+                boiler_atelier_on = False
+
                 if keep_on_until['boiler_atelier'] is not None:
-                    # Boiler Atelier endzeit gesetzt, ON solange endzeit nicht erreicht
-                    boiler_atelier_on = dt.now() < keep_on_until['boiler_atelier']
-                    keep_on_until['boiler_atelier'] = keep_on_until['boiler_atelier'] if boiler_atelier_on else None
+                    boiler_atelier_on = now_dt < keep_on_until['boiler_atelier']
+
+                    if not boiler_atelier_on:
+                        keep_on_until['boiler_atelier'] = None
+
+                elif sun_ok and last_run_at['boiler_atelier'] < now_dt.date():
+                    boiler_atelier_on = True
+                    keep_on_until['boiler_atelier'] = now_dt + td(hours=ontime_boiler_aterlier)
+                    last_run_at['boiler_atelier'] = now_dt.date()
+
             else:
                 boiler_atelier_on = boiler_modus_atelier == 'ein'
                 keep_on_until['boiler_atelier'] = None
-                keep_off_until['boiler_atelier'] = None
 
             print(f"Boiler keep on until: {keep_on_until['boiler_atelier']}")
             print(f"Boiler keep off until: {keep_off_until['boiler_atelier']}")
